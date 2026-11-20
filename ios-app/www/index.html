@@ -1,1 +1,47 @@
-﻿<!doctype html><html><head><meta charset="utf-8"><title>BGS</title></head><body>build</body></html>
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BGS plugin test</title>
+<style>
+body{background:#111;color:#eee;font:16px/1.5 -apple-system,sans-serif;padding:24px;white-space:pre-wrap}
+</style>
+</head>
+<body>
+<div id="out">running...</div>
+<script>
+(async () => {
+  const out = document.getElementById('out');
+  const lines = [];
+  const push = (name, value, ok) => {
+    lines.push((ok ? 'OK ' : 'FAIL ') + name + ': ' + value);
+    out.textContent = lines.join('\n');
+  };
+  try {
+    push('Capacitor', typeof window.Capacitor, !!window.Capacitor);
+    const plugins = window.Capacitor && window.Capacitor.Plugins;
+    const secure = plugins && plugins.BgsSecure;
+    push('BgsSecure registered', !!secure, !!secure);
+    if (secure) {
+      if (secure.available) {
+        const a = await secure.available();
+        push('available', JSON.stringify(a), !!(a && a.value));
+      }
+      if (secure.hmacSeal) {
+        const h = await secure.hmacSeal({ payload: 'BGS-TEST' });
+        push('hmacSeal', h && h.value ? String(h.value).slice(0, 12) : 'empty', !!(h && h.value && String(h.value).startsWith('n1:')));
+      }
+      if (secure.writeAtomic) {
+        const w = await secure.writeAtomic({ path: 'CunDang/ci-atomic-test.bgd', text: 'ci-test' });
+        push('writeAtomic', JSON.stringify(w), !!(w && w.ok));
+      }
+    }
+  } catch (err) {
+    push('exception', err && err.message ? err.message : String(err), false);
+  }
+  out.textContent = lines.join('\n');
+})();
+</script>
+</body>
+</html>
