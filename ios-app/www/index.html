@@ -1,47 +1,1197 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="zh-CN">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>BGS plugin test</title>
-<style>
-body{background:#111;color:#eee;font:16px/1.5 -apple-system,sans-serif;padding:24px;white-space:pre-wrap}
-</style>
-</head>
-<body>
-<div id="out">running...</div>
-<script>
-(async () => {
-  const out = document.getElementById('out');
-  const lines = [];
-  const push = (name, value, ok) => {
-    lines.push((ok ? 'OK ' : 'FAIL ') + name + ': ' + value);
-    out.textContent = lines.join('\n');
-  };
-  try {
-    push('Capacitor', typeof window.Capacitor, !!window.Capacitor);
-    const plugins = window.Capacitor && window.Capacitor.Plugins;
-    const secure = plugins && plugins.BgsSecure;
-    push('BgsSecure registered', !!secure, !!secure);
-    if (secure) {
-      if (secure.available) {
-        const a = await secure.available();
-        push('available', JSON.stringify(a), !!(a && a.value));
-      }
-      if (secure.hmacSeal) {
-        const h = await secure.hmacSeal({ payload: 'BGS-TEST' });
-        push('hmacSeal', h && h.value ? String(h.value).slice(0, 12) : 'empty', !!(h && h.value && String(h.value).startsWith('n1:')));
-      }
-      if (secure.writeAtomic) {
-        const w = await secure.writeAtomic({ path: 'CunDang/ci-atomic-test.bgd', text: 'ci-test' });
-        push('writeAtomic', JSON.stringify(w), !!(w && w.ok));
-      }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#070912" />
+  <meta name="description" content="崩国杀：崩坏3主题的2-8人联机身份局卡牌游戏。选择角色，加入同一场对局。" />
+  <title>崩国杀 · HONKAI GUOSHA</title>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+  <link rel="icon" href="./icon-32.png" sizes="32x32" type="image/png" />
+  <link rel="icon" href="./icon-16.png" sizes="16x16" type="image/png" />
+  <link rel="apple-touch-icon" href="./apple-touch-icon.png" sizes="180x180" />
+  <link rel="manifest" href="./site.webmanifest" />
+  <meta name="application-name" content="崩国杀" />
+  <meta name="apple-mobile-web-app-title" content="崩国杀" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta property="og:title" content="崩国杀 · HONKAI GUOSHA" />
+  <meta property="og:description" content="崩坏3主题的 2—8 人联机身份局卡牌游戏" />
+  <meta property="og:image" content="./icon-512.png" />
+  <link rel="preload" href="./assets/loop-bg-poster.jpg?v=600k" as="image" />
+  <link id="main-styles" rel="stylesheet" href="./styles-20261106.css?v=20261108-498" />
+  <script>
+    // 隧道/弱网偶发 CSS 请求失败时自动重试，避免进入界面退回无样式状态
+    (function () {
+      var link = document.getElementById('main-styles');
+      if (!link) return;
+      var retries = 0;
+      var loaded = false;
+      var markLoaded = function () {
+        loaded = true;
+        document.documentElement.classList.remove('css-failed');
+      };
+      link.addEventListener('load', markLoaded);
+      // 缓存命中时 load 可能已早于监听器执行，直接检查 sheet
+      if (link.sheet) markLoaded();
+      var retry = function () {
+        if (loaded || retries >= 3) return;
+        retries += 1;
+        setTimeout(function () {
+          var next = document.createElement('link');
+          next.rel = 'stylesheet';
+          next.href = './styles.css?retry=' + Date.now();
+          next.onload = markLoaded;
+          document.head.appendChild(next);
+        }, 900 * retries);
+      };
+      link.addEventListener('error', function () {
+        document.documentElement.classList.add('css-failed');
+        retry();
+      });
+      setTimeout(function () {
+        if (!loaded && link.sheet) markLoaded();
+        if (!loaded) document.documentElement.classList.add('css-failed');
+      }, 12000);
+    })();
+  </script>
+  <style>
+    /* 极端情况下 CSS 没加载成功时，至少给用户一个明确的重新加载入口，而不是裸露的 HTML */
+    .css-failed body::before {
+      content: "界面样式加载失败，正在重试… 若长时间无响应，请重新打开游戏";
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: grid;
+      place-items: center;
+      padding: 30px;
+      background: #070912;
+      color: #cfd4f4;
+      font: 14px/1.8 "Microsoft YaHei", sans-serif;
+      text-align: center;
+      letter-spacing: 0.06em;
     }
-  } catch (err) {
-    push('exception', err && err.message ? err.message : String(err), false);
+  </style>
+  <script src="./dev-config.js?v=1"></script>
+ 
+  <script>
+    if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('./sw-secure.js', { scope: './' }).catch(function () {});
+      });
+    }
+  </script>
+  <script>
+    (function () {
+      var native = /[?&]app=1/.test(location.search) ||
+        (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+      if (!native) return;
+      document.documentElement.classList.add('native-app');
+      var link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = './mobile-app.css?v=20261116-2';
+      document.head.appendChild(link);
+    })();
+  </script>
+
+</head>
+<body class="landing-active">
+  <div class="bg-layer">
+    <canvas id="bg-canvas"></canvas>
+    <div class="bg-grid"></div>
+    <div class="bg-glow glow-a"></div>
+    <div class="bg-glow glow-b"></div>
+    <div class="bg-noise"></div>
+  </div>
+
+  <div id="app">
+    <!-- ============================== 进入界面 ============================== -->
+    <section id="landing" class="landing" aria-label="崩国杀开始界面">
+      <video
+        id="landing-video"
+        class="landing-video"
+        autoplay
+        muted
+        loop
+        playsinline
+        preload="auto"
+        poster="./assets/loop-bg-poster.jpg?v=600k"
+        disablepictureinpicture
+        aria-hidden="true"
+        oncontextmenu="return false"
+      >
+        <source src="./assets/loop-bg.mp4?v=600k" type="video/mp4" />
+      </video>
+      <div class="landing-vignette"></div>
+      <div class="landing-grain"></div>
+
+      <header class="landing-top">
+        <div class="brand landing-brand">
+          <span class="brand-mark brand-icon"><img src="./icon-brand.png" alt="" /></span>
+          <div class="brand-text">
+            <strong>崩国杀</strong>
+            <small>HONKAI GUOSHA</small>
+          </div>
+        </div>
+        <div class="landing-top-right">
+          <div class="landing-meta">A FAN-MADE CARD GAME · 2026</div>
+          <div class="pwa-install-group" id="pwa-install-group" hidden>
+            <button class="landing-mute pwa-install" id="pwa-install" title="安装到桌面" aria-label="安装到桌面">
+              <span class="pwa-install-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <path d="M12 4v9.5" />
+                  <path d="m8.2 10 3.8 3.8 3.8-3.8" />
+                  <path d="M5 18.5h14" />
+                </svg>
+              </span>
+              <span class="mute-label">安装到桌面</span>
+            </button>
+            <button class="landing-mute pwa-install" id="pwa-install-android" title="安装到安卓手机 / 平板" aria-label="安装到安卓端">
+              <span class="pwa-install-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <rect x="7" y="3" width="10" height="18" rx="2.2" />
+                  <path d="M12 7v6" />
+                  <path d="m9.6 10.6 2.4 2.4 2.4-2.4" />
+                </svg>
+              </span>
+              <span class="mute-label">安装到安卓端</span>
+            </button>
+            <button class="landing-mute pwa-install" id="pwa-install-ios" title="安装到 iPhone / iPad" aria-label="安装到苹果端">
+              <span class="pwa-install-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <rect x="7" y="3" width="10" height="18" rx="2.5" />
+                  <circle cx="12" cy="16.6" r="1" />
+                </svg>
+              </span>
+              <span class="mute-label">安装到苹果端</span>
+            </button>
+          </div>
+          <button class="landing-mute music-toggle" id="landing-mute" aria-pressed="true" title="开启 / 关闭背景音乐">
+            <span class="mute-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M4.5 9.2v5.6h3.6l4.4 3.6V5.6L8.1 9.2H4.5Z" />
+                <path class="mute-wave" d="M15.6 8.4c1.15 1.8 1.15 5.4 0 7.2" />
+                <path class="mute-slash" d="M4 4 20 20" />
+              </svg>
+            </span>
+            <span class="mute-label">音乐 开</span>
+          </button>
+        </div>
+      </header>
+<div class="landing-center">
+        <h1 class="landing-title">崩国杀</h1>
+        <p class="landing-subtitle">HONKAI GUOSHA</p>
+      </div>
+
+      <div class="landing-bottom">
+        <div class="landing-legal">
+          <span>非官方同人作品 · 免费游玩 · 请勿商用</span>
+          <span class="landing-legal-note">游戏制作过程中会有或多或少的 BUG，请点击右下角“作者的话”加入游戏反馈群，及时获取并使用群内最新游戏更新内容，以免给您带来体验不便。</span>
+        </div>
+        <div class="landing-start-wrap">
+          <button class="landing-start" id="landing-start" aria-label="开始游戏">
+            <span class="landing-start-ring"></span>
+            <span class="landing-start-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M8.5 5.5 19 12 8.5 18.5Z" /></svg>
+            </span>
+          </button>
+          <span class="landing-start-label">开始游戏</span>
+          <span class="landing-start-hint">CLICK TO ENTER</span>
+        </div>
+        <button class="landing-exit" id="landing-exit" aria-label="退出游戏">
+          <span class="exit-door" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <path d="M4 3.5h8.5v17H4Z" />
+              <path d="M12.5 5.2 20 7.4v9.2l-7.5 2.2" />
+              <circle cx="10.4" cy="12" r="0.9" />
+            </svg>
+          </span>
+          <span class="exit-label">退出游戏</span>
+        </button>
+        <button class="landing-author" id="landing-author" aria-label="作者的话">
+          <span class="author-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M5 19.5c3.3-.4 6-1.6 8.2-3.8 2-2 3.2-4.4 3.8-7.2l1.4-2.6-2.5 1.4c-2.8.6-5.2 1.8-7.2 3.8-2.2 2.2-3.4 4.9-3.8 8.2Z"/><path d="M4 20c4.2 0 7.5-1.3 10-3.8"/></svg>
+          </span>
+          <span class="landing-author-label">作者的话</span>
+          <small class="landing-version">v1.1.0</small>
+        </button>
+      </div>
+
+      <audio id="landing-bgm" loop preload="none" aria-hidden="true"></audio>
+    </section>
+
+    <!-- ============================== 登录页 ============================== -->
+    <section id="login-gate" class="login-gate" aria-label="账号登录">
+      <div class="home-scene login-scene" aria-hidden="true">
+        <img class="home-scene-img" src="./assets/home-bg.jpg?v=1" alt="" decoding="async" />
+        <div class="home-scene-frost"></div>
+        <div class="home-scene-shade"></div>
+      </div>
+
+      <header class="login-top">
+        <div class="brand">
+          <span class="brand-mark brand-icon"><img src="./icon-brand.png" alt="" /></span>
+          <div class="brand-text">
+            <strong>崩国杀</strong>
+            <small>HONKAI GUOSHA</small>
+          </div>
+        </div>
+        <div class="login-top-actions">
+          <button class="landing-mute app-music music-toggle" aria-pressed="true" title="开启 / 关闭背景音乐">
+            <span class="mute-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M4.5 9.2v5.6h3.6l4.4 3.6V5.6L8.1 9.2H4.5Z" />
+                <path class="mute-wave" d="M15.6 8.4c1.15 1.8 1.15 5.4 0 7.2" />
+                <path class="mute-slash" d="M4 4 20 20" />
+              </svg>
+            </span>
+            <span class="mute-label">音乐 开</span>
+          </button>
+          <button class="login-back" id="login-back">返回开始界面</button>
+        </div>
+      </header>
+
+      <main class="login-main">
+        <div class="login-copy">
+          <div class="eyebrow"><i></i> CAPTAIN'S ARCHIVE / 舰长档案</div>
+          <h1>欢迎登录<br />休伯利安</h1>
+          <p class="login-tip">小薇温馨提示：<br />猜猜看，这个游戏是谁最先想出来的呢~</p>
+          <p class="login-tip login-tip-red">■■：就你话最多！</p>
+          <p class="login-tip-log" style="color: #ffffff; font-size: 14px; font-weight: 600; letter-spacing: 0.08em; text-shadow: 0 0 8px rgba(255, 255, 255, 0.95), 0 0 22px rgba(255, 255, 255, 0.5), 0 2px 14px rgba(0, 0, 0, 0.8);">（查看游戏日志后的爱衣）</p>
+          <p class="login-tip login-tip-ai" style="color: #25e39b; font-size: 14px; font-weight: 600; letter-spacing: 0.08em; text-shadow: 0 0 8px rgba(0, 255, 170, 0.9), 0 0 22px rgba(0, 210, 130, 0.65), 0 2px 14px rgba(0, 0, 0, 0.8);">爱衣：......</p>
+        </div>
+
+        <div class="login-card glass">
+          <div class="login-card-head">
+            <div>
+              <div class="panel-kicker">LOCAL ARCHIVE / 本地档案</div>
+              <h2>建立舰长档案</h2>
+            </div>
+            <button class="archive-info-btn" id="archive-help-btn" type="button">档案说明</button>
+          </div>
+
+          <form id="login-form" novalidate>
+            <label class="field-label" for="login-nickname">舰长昵称</label>
+            <div class="input-wrap login-input">
+              <span class="input-icon">◇</span>
+              <input id="login-nickname" name="nickname" autocomplete="nickname" maxlength="6" placeholder="请输入 2—6 个字符" />
+            </div>
+
+            <div id="login-account-field">
+              <label class="field-label" for="login-account">自定义账号</label>
+              <div class="account-id-row">
+                <div class="input-wrap login-input">
+                  <span class="input-icon">ID</span>
+                  <input
+                    id="login-account"
+                    name="account"
+                    autocomplete="username"
+                    maxlength="10"
+                    placeholder="10 位大小写字母 + 数字"
+                    readonly
+                    aria-readonly="true"
+                  />
+                </div>
+                <button
+                  class="id-dice"
+                  id="id-dice"
+                  type="button"
+                  title="摇骰子，随机生成 10 位账号 ID"
+                  aria-label="摇骰子生成账号 ID"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <rect x="3" y="3" width="18" height="18" rx="4" fill="none" stroke="currentColor" stroke-width="1.7" />
+                    <circle cx="8" cy="8" r="1.5" fill="currentColor" />
+                    <circle cx="16" cy="8" r="1.5" fill="currentColor" />
+                    <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+                    <circle cx="8" cy="16" r="1.5" fill="currentColor" />
+                    <circle cx="16" cy="16" r="1.5" fill="currentColor" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div id="login-password-field">
+              <label class="field-label" for="login-password">本地密码</label>
+              <div class="input-wrap login-input">
+                <span class="input-icon">◇</span>
+                <input id="login-password" name="password" type="password" autocomplete="new-password" maxlength="32" placeholder="至少 6 位" />
+              </div>
+            </div>
+
+            <p class="login-hint" id="login-hint"></p>
+            <button class="btn primary wide login-submit" id="login-submit" type="submit">创建账号并进入</button>
+          </form>
+
+          <div class="archive-actions">
+            <button class="btn small ghost" id="archive-load" type="button">手动查找已有档案</button>
+            <button class="btn small ghost" id="archive-find" type="button">自动查找已有档案</button>
+          </div>
+          <p class="archive-hint">
+            档案文件按顺序编号：<b>GeRenDangAn1.bgd、GeRenDangAn2.bgd…</b>，一个文件夹可以放多份。登录后只要联网，游玩数据会自动写回各端的 CunDang 存档文件夹，不需要退出；浏览器端会自动保存在浏览器内部，需要实际文件时可在「查看已保存」导出。要换设备继续，请退出后导出档案，再到新设备用“手动查找已有档案”读取。
+            点“自动查找已有档案”会列出默认文件夹里的全部档案，自己点一份载入即可。
+          </p>
+          <input id="archive-file" type="file" accept=".bgd,.json,application/octet-stream" hidden />
+
+          <div class="login-divider"><span>对局内档案共享</span></div>
+          <p class="local-share">
+            进入同一房间后，房主服务器只会在内存里临时显示你的昵称、称号与成就摘要；房间关闭即清除，不影响本地档案和已导出的 .bgd 文件。
+          </p>
+
+          <p class="login-privacy">
+            档案、成就与对局记录只保存在本机，不上传云端、不用于商业用途、不会向第三方泄露。
+            <br /><span>跨设备不会自动同步，需要手动复制 / 载入 .bgd 档案；导出的档案文件本身不受清缓存或卸载影响，但只存在浏览器 / 客户端里的本地记录会消失。</span>
+          </p>
+        </div>
+      </main>
+
+      <footer class="login-footer">
+        <span>非官方同人作品 · 免费游玩 · 请勿商用</span>
+        <span>v1.1.0 · 多端本地档案</span>
+      </footer>
+    </section>
+
+    <!-- ============================== 首页 ============================== -->
+    <section id="screen-home" class="screen active">
+      <div class="home-scene" aria-hidden="true">
+        <img class="home-scene-img" src="./assets/home-bg.jpg?v=1" alt="" decoding="async" />
+        <div class="home-scene-frost"></div>
+        <div class="home-scene-shade"></div>
+      </div>
+
+      <header class="home-nav">
+        <div class="home-profile" id="home-profile" role="button" tabindex="0" aria-label="打开个人账号信息">
+          <svg class="home-profile-shape" viewBox="0 0 420 100" preserveAspectRatio="none" aria-hidden="true">
+            <defs>
+              <linearGradient id="profileFill" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#12304f" />
+                <stop offset="0.55" stop-color="#0a1a30" />
+                <stop offset="1" stop-color="#050d18" />
+              </linearGradient>
+              <linearGradient id="profileStroke" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0" stop-color="rgba(125,211,252,0.75)" />
+                <stop offset="0.5" stop-color="rgba(56,189,248,0.25)" />
+                <stop offset="1" stop-color="rgba(37,99,235,0.65)" />
+              </linearGradient>
+              <radialGradient id="profileGlow" cx="0.12" cy="0.1" r="0.8">
+                <stop offset="0" stop-color="rgba(56,189,248,0.30)" />
+                <stop offset="1" stop-color="rgba(56,189,248,0)" />
+              </radialGradient>
+              <linearGradient id="profileSheen" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="rgba(255,255,255,0)" />
+                <stop offset="0.42" stop-color="rgba(255,255,255,0.07)" />
+                <stop offset="0.5" stop-color="rgba(255,255,255,0.02)" />
+                <stop offset="1" stop-color="rgba(255,255,255,0)" />
+              </linearGradient>
+              <pattern id="profileGrid" width="16" height="16" patternUnits="userSpaceOnUse">
+                <path d="M16 0H0V16" fill="none" stroke="rgba(125,211,252,0.07)" stroke-width="1" />
+              </pattern>
+            </defs>
+            <path
+              d="M18 2 H366 Q380 2 384 16 L415 82 Q419 98 403 98 H16 Q2 98 2 82 V18 Q2 2 18 2 Z"
+              fill="url(#profileFill)"
+              stroke="url(#profileStroke)"
+              stroke-width="1.2"
+              vector-effect="non-scaling-stroke"
+            />
+            <path
+              d="M18 2 H366 Q380 2 384 16 L415 82 Q419 98 403 98 H16 Q2 98 2 82 V18 Q2 2 18 2 Z"
+              fill="url(#profileGlow)"
+            />
+            <path
+              d="M18 2 H366 Q380 2 384 16 L415 82 Q419 98 403 98 H16 Q2 98 2 82 V18 Q2 2 18 2 Z"
+              fill="url(#profileGrid)"
+              opacity="0.55"
+            />
+            <path d="M22 7 H348" fill="none" stroke="rgba(186,230,253,0.28)" stroke-width="1" />
+            <path d="M14 90 H246" fill="none" stroke="rgba(56,189,248,0.45)" stroke-width="1" />
+            <path d="M330 7 h34 l14 14" fill="none" stroke="rgba(125,211,252,0.55)" stroke-width="1" />
+            <path d="M14 84 v-10 h10" fill="none" stroke="rgba(125,211,252,0.38)" stroke-width="1" />
+            <path d="M262 90 l4 -4 4 4 -4 4 Z" fill="rgba(125,211,252,0.8)" />
+            <path d="M278 90 l3 -3 3 3 -3 3 Z" fill="rgba(125,211,252,0.45)" />
+            <path d="M292 90 l2 -2 2 2 -2 2 Z" fill="rgba(125,211,252,0.28)" />
+            <path d="M399 22 l3 -3 3 3 -3 3 Z" fill="rgba(186,230,253,0.85)" />            <path
+              d="M18 2 H366 Q380 2 384 16 L415 82 Q419 98 403 98 H16 Q2 98 2 82 V18 Q2 2 18 2 Z"
+              fill="url(#profileSheen)"
+            />
+            <path
+              d="M21 6 H362 Q374 6 378 18 L407 80 Q410 93 398 93 H18 Q6 93 6 80 V21 Q6 6 21 6 Z"
+              fill="none"
+              stroke="rgba(255,255,255,0.075)"
+              stroke-width="1"
+            />
+            <path d="M6 72 C17 72 21 66 21 55" fill="none" stroke="rgba(125,211,252,0.36)" stroke-width="1" />
+            <path d="M6 24 C14 24 18 28 18 36" fill="none" stroke="rgba(125,211,252,0.36)" stroke-width="1" />
+            <path d="M320 88 C338 88 348 78 348 60" fill="none" stroke="rgba(125,211,252,0.38)" stroke-width="1" />
+            <path d="M356 14 l10 10 M356 24 l-8 8" fill="none" stroke="rgba(186,230,253,0.3)" stroke-width="1" />
+            <g fill="rgba(186,230,253,0.85)">
+              <path d="M352 26 l1.2 2.8 2.8 1.2 -2.8 1.2 -1.2 2.8 -1.2 -2.8 -2.8 -1.2 2.8 -1.2 Z" />
+              <path d="M28 18 l1 2.3 2.3 1 -2.3 1 -1 2.3 -1 -2.3 -2.3 -1 2.3 -1 Z" opacity="0.7" />
+              <path d="M404 66 l0.8 1.8 1.8 0.8 -1.8 0.8 -0.8 1.8 -0.8 -1.8 -1.8 -0.8 1.8 -0.8 Z" opacity="0.55" />
+            </g>
+            <path d="M40 92 v-4 M58 92 v-4 M76 92 v-4 M94 92 v-4 M112 92 v-4 M130 92 v-4 M148 92 v-4" stroke="rgba(125,211,252,0.25)" stroke-width="1" />
+            <path d="M250 92 h30" stroke="rgba(255,190,220,0.3)" stroke-width="1" />
+          </svg>
+          <span class="home-avatar" id="home-avatar" aria-hidden="true">
+            <span class="home-avatar-inner" id="home-avatar-mark"></span>
+            <i class="home-frame-overlay"></i>
+          </span>
+          <div class="home-profile-info">
+            <div class="home-profile-name" id="home-profile-name">舰长</div>
+            <div class="home-profile-exp">
+              <span class="exp-label">EXP</span>
+              <span class="exp-cells" id="home-exp-cells" title="经验 0/100"></span>
+            </div>
+          </div>
+          <span class="exp-level-wrap">
+            <b class="exp-level" id="home-level">1</b>
+          </span>
+        </div>
+        <div class="home-common" id="home-common"></div>
+        <div class="nav-actions">
+          <button class="home-mail" id="home-mail" type="button" title="消息">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="3" y="5.5" width="18" height="13" rx="2" />
+              <path d="M3.5 7 12 13l8.5-6" />
+            </svg>
+            <span>消息</span>
+            <i class="mail-badge" id="mail-badge" hidden>0</i>
+          </button>
+          <button class="landing-mute app-music music-toggle" aria-pressed="true" title="开启 / 关闭背景音乐">
+            <span class="mute-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M4.5 9.2v5.6h3.6l4.4 3.6V5.6L8.1 9.2H4.5Z" />
+                <path class="mute-wave" d="M15.6 8.4c1.15 1.8 1.15 5.4 0 7.2" />
+                <path class="mute-slash" d="M4 4 20 20" />
+              </svg>
+            </span>
+            <span class="mute-label">音乐 开</span>
+          </button>
+          <button class="icon-btn text-btn settings-btn" id="home-settings">
+            <svg class="gear-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="3.4" />
+              <path d="M12 2.4v3M12 18.6v3M2.4 12h3M18.6 12h3M5.2 5.2l2.1 2.1M16.7 16.7l2.1 2.1M18.8 5.2l-2.1 2.1M7.3 16.7l-2.1 2.1" />
+            </svg>
+            <span>设置</span>
+          </button>
+          <div class="home-coins" id="home-coins" aria-label="金币">
+            <span class="coin-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 6.8l1.7 3.3 3.6.5-2.6 2.6.6 3.6-3.3-1.7-3.3 1.7.6-3.6-2.6-2.6 3.6-.5Z" />
+              </svg>
+            </span>
+            <span class="coin-box"><b id="home-coins-value">0</b></span>
+          </div>
+        </div>
+      </header>
+
+      <main class="home-main home-main-clean">
+        <button class="mode-card mode-pvp" type="button" data-mode="pvp">
+          <img class="mode-bg" src="./assets/mode-pvp.jpg" alt="" decoding="async" />
+          <span class="mode-glass" aria-hidden="true"></span>
+          <span class="mode-glow" aria-hidden="true"></span>
+          <span class="mode-deco mode-deco-a" aria-hidden="true"></span>
+          <span class="mode-deco mode-deco-b" aria-hidden="true"></span>
+          <span class="mode-orb mode-orb-a" aria-hidden="true"></span>
+          <span class="mode-orb mode-orb-b" aria-hidden="true"></span>
+          <span class="mode-watermark" aria-hidden="true">战</span>
+          <span class="mode-head">
+            <span class="mode-index">01</span>
+            <span class="mode-tag">MULTIPLAYER</span>
+          </span>
+          <span class="mode-body">
+            <span class="mode-title">多人对战</span>
+            <span class="mode-rule" aria-hidden="true"></span>
+            <span class="mode-desc">与好友同房对局，身份、牌序与心理博弈，每一局都不一样。</span>
+          </span>
+          <span class="mode-foot">
+            <span class="mode-status"><i aria-hidden="true"></i> 房间联机</span>
+            <span class="mode-cta">进入战场 <b aria-hidden="true">→</b></span>
+          </span>
+        </button>
+
+        <button class="mode-card mode-solo" type="button" data-mode="solo">
+          <img class="mode-bg" src="./assets/mode-solo.jpg" alt="" decoding="async" />
+          <span class="mode-glass" aria-hidden="true"></span>
+          <span class="mode-glow" aria-hidden="true"></span>
+          <span class="mode-deco mode-deco-a" aria-hidden="true"></span>
+          <span class="mode-deco mode-deco-b" aria-hidden="true"></span>
+          <span class="mode-orb mode-orb-a" aria-hidden="true"></span>
+          <span class="mode-orb mode-orb-b" aria-hidden="true"></span>
+          <span class="mode-watermark" aria-hidden="true">演</span>
+          <span class="mode-head">
+            <span class="mode-index">02</span>
+            <span class="mode-tag">VS A.I.</span>
+          </span>
+          <span class="mode-body">
+            <span class="mode-title">人机对抗</span>
+            <span class="mode-rule" aria-hidden="true"></span>
+            <span class="mode-desc">单人快速开局，多位 AI 对手陪练，随时熟悉角色、卡牌与节奏。</span>
+          </span>
+          <span class="mode-foot">
+            <span class="mode-status"><i aria-hidden="true"></i> 即时开局</span>
+            <span class="mode-cta">开始对局 <b aria-hidden="true">→</b></span>
+          </span>
+        </button>
+
+        <button class="mode-card mode-more" type="button" data-mode="more">
+          <img class="mode-bg" src="./assets/mode-more.jpg" alt="" decoding="async" />
+          <span class="mode-glass" aria-hidden="true"></span>
+          <span class="mode-glow" aria-hidden="true"></span>
+          <span class="mode-deco mode-deco-a" aria-hidden="true"></span>
+          <span class="mode-deco mode-deco-b" aria-hidden="true"></span>
+          <span class="mode-orb mode-orb-a" aria-hidden="true"></span>
+          <span class="mode-orb mode-orb-b" aria-hidden="true"></span>
+          <span class="mode-watermark" aria-hidden="true">弈</span>
+          <span class="mode-head">
+            <span class="mode-index">03</span>
+            <span class="mode-tag">MORE</span>
+          </span>
+          <span class="mode-body">
+            <span class="mode-title">更多玩法</span>
+            <span class="mode-rule" aria-hidden="true"></span>
+            <span class="mode-desc">特殊模式与后续活动玩法，新的对局方式会陆续开放。</span>
+          </span>
+          <span class="mode-foot">
+            <span class="mode-status"><i aria-hidden="true"></i> 规则与模式</span>
+            <span class="mode-cta">查看详情 <b aria-hidden="true">→</b></span>
+          </span>
+        </button>
+      </main>
+
+      <nav class="home-sidebar" aria-label="功能入口">
+        <button class="home-side-btn" type="button" data-home-action="tasks"><i class="home-side-dot" data-task-dot hidden></i>
+          <span class="home-side-diamond">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 3.5h8.5L18 7v13.5H6Z" />
+              <path d="M14.5 3.5V7H18" />
+              <path d="m9 16 1.2-3.6 5.4-5.4 1.8 1.8-5.4 5.4Z" />
+            </svg>
+          </span>
+          <span class="home-side-label">任务</span>
+        </button>
+        <button class="home-side-btn" type="button" data-home-action="events">
+          <span class="home-side-diamond">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 4.2c3.2 0 5.3 2.3 5.3 5.1 0 3.5-3.8 5.7-5.3 8.4-1.5-2.7-5.3-4.9-5.3-8.4 0-2.8 2.1-5.1 5.3-5.1Z" />
+              <path d="m12 17.7-1.4 1.8h2.8Z" />
+              <path d="M12 19.5c0 1.4-.8 2.2-2 2.6" />
+            </svg>
+          </span>
+          <span class="home-side-label">活动</span>
+        </button>
+        <button class="home-side-btn" type="button" data-home-action="notice">
+          <span class="home-side-diamond">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 9.5h3.2L15 5.5v13l-7.8-4H4Z" />
+              <path d="M7.2 14.2v4.1h3v-3" />
+              <path d="M18 9.2c1 1.7 1 3.9 0 5.6" />
+              <path d="M20.3 7.2c1.8 2.8 1.8 6.8 0 9.6" />
+            </svg>
+          </span>
+          <span class="home-side-label">公告</span>
+        </button>
+        <button class="home-side-btn" type="button" data-home-action="play">
+          <span class="home-side-diamond">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M7.6 8h8.8a4 4 0 0 1 4 3.5l1 5.2a2.5 2.5 0 0 1-4.2 2.2L15.4 17H8.6l-1.8 1.9a2.5 2.5 0 0 1-4.2-2.2l1-5.2A4 4 0 0 1 7.6 8Z" />
+              <path d="M7.8 11.2v3.2M6.2 12.8H9.4" />
+              <circle cx="15.6" cy="11.9" r="0.9" />
+              <circle cx="17.9" cy="14" r="0.9" />
+            </svg>
+          </span>
+          <span class="home-side-label">玩法</span>
+        </button>
+        <button class="home-side-btn" type="button" data-home-action="shop">
+          <span class="home-side-diamond">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3.8 10.2h16.4v7.5a2.3 2.3 0 0 1-2.3 2.3H6.1a2.3 2.3 0 0 1-2.3-2.3Z" />
+              <path d="M3.8 10.2c0-2.1 1.6-3.8 3.7-3.8h9c2.1 0 3.7 1.7 3.7 3.8" />
+              <path d="M10.2 10.2v4.1h3.6v-4.1" />
+              <path d="M11.4 12.3h1.2" />
+            </svg>
+          </span>
+          <span class="home-side-label">商城</span>
+        </button>
+        <button class="home-side-btn" type="button" data-home-action="equipment">
+          <span class="home-side-diamond">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M8.2 8V6.6a3.8 3.8 0 0 1 7.6 0V8" />
+              <rect x="5" y="8" width="14" height="12" rx="3.4" />
+              <path d="M9 12.4h6" />
+              <path d="M10 15.6h4" />
+            </svg>
+          </span>
+          <span class="home-side-label">背包</span>
+        </button>
+      </nav>
+
+      <footer class="home-footer">
+        <span>非官方同人作品 · 仅用于规则玩法交流 · 角色与世界观与素材归 miHoYo 所有，玩法仿照《三国杀》游戏玩法</span>
+        <div class="foot-right">
+          <span class="foot-uid" id="home-foot-uid">UID —</span>
+        </div>
+      </footer>
+    </section>
+
+      <div class="entry-modal" id="entry-modal" hidden>
+        <div class="entry-modal-backdrop"></div>
+        <div class="entry-page">
+          <div class="entry-page-actions">
+            <button class="entry-display-settings" id="entry-display-settings" type="button">联机大厅须知</button>
+            <button class="app-music music-toggle entry-music" aria-pressed="true" title="开启 / 关闭背景音乐">
+              <span class="mute-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4.5 9.2v5.6h3.6l4.4 3.6V5.6L8.1 9.2H4.5Z" /><path class="mute-wave" d="M15.6 8.4c1.15 1.8 1.15 5.4 0 7.2" /><path class="mute-slash" d="M4 4 20 20" /></svg></span>
+              <span class="mute-label">音乐 开</span>
+            </button>
+            <button class="entry-close" type="button" data-close-entry aria-label="离开"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3h9v18H4z"/><path d="M13 4l6 2v14l-6-2"/><path d="M9 12h7"/><path d="m13 9 3 3-3 3"/></svg><span>离开</span></button>
+          </div>
+          <div class="entry-host-seat" id="entry-host-seat">
+            <span class="entry-host-name" id="entry-host-name"></span>
+            <span class="entry-host-uid" id="entry-host-uid"></span>
+            <span class="entry-host-circle" id="entry-host-avatar">房</span>
+            <span class="entry-host-label">房主</span>
+          </div>
+          <header class="entry-page-head">
+            <div>
+              <div class="panel-kicker">MULTIPLAYER / 多人对战</div>
+              <h1>联机大厅</h1>
+            </div>
+          </header>
+          <div class="entry-mode-options">
+            <button class="entry-mode-btn mode-match" type="button" data-multi-mode="match"><b>匹配对战</b><small>创建房间，等待玩家加入</small></button>
+            <button class="entry-mode-btn mode-ranked" type="button" data-multi-mode="ranked"><b>排位对战</b><small>段位匹配，竞技对局</small></button>
+          </div>
+          <div class="entry-mode-layout">
+            <div class="entry-mode-col entry-mode-col-left">
+              <div class="entry-play-mode" role="button" tabindex="0" type="button" data-play-mode="doudizhu" data-players="3"><span class="entry-mode-name"><b>欢乐斗地主</b><small>3 人 · 身份乱斗</small></span><span class="entry-mode-frame"></span></div>
+              <div class="entry-play-mode" role="button" tabindex="0" type="button" data-play-mode="5p" data-players="5"><span class="entry-mode-name"><b>5 人纷争</b><small>5 人 · 身份局</small></span><span class="entry-mode-frame"></span></div>
+              <div class="entry-play-mode" role="button" tabindex="0" type="button" data-play-mode="7p" data-players="7"><span class="entry-mode-name"><b>7 人纷争</b><small>7 人 · 身份局</small></span><span class="entry-mode-frame"></span></div>
+            </div>
+            <div class="entry-mode-center">
+              <div class="entry-play-mode entry-duel-mode" role="button" tabindex="0" type="button" data-play-mode="1v1" data-players="2"><span class="entry-mode-name"><b>1V1 单挑</b><small>2 人 · 单挑对决</small></span><span class="entry-mode-frame"></span></div>
+            </div>
+            <div class="entry-mode-col entry-mode-col-right">
+              <div class="entry-play-mode" role="button" tabindex="0" type="button" data-play-mode="duo" data-players="4"><span class="entry-mode-name"><b>最强搭档</b><small>4 人 · 2V2 搭档</small></span><span class="entry-mode-frame"></span></div>
+              <div class="entry-play-mode" role="button" tabindex="0" type="button" data-play-mode="6p" data-players="6"><span class="entry-mode-name"><b>6 人纷争</b><small>6 人 · 身份局</small></span><span class="entry-mode-frame"></span></div>
+              <div class="entry-play-mode" role="button" tabindex="0" type="button" data-play-mode="8p" data-players="8"><span class="entry-mode-name"><b>8 人纷争</b><small>8 人 · 身份局</small></span><span class="entry-mode-frame"></span></div>
+            </div>
+            <div class="entry-rank-card" id="entry-rank-card"></div>
+          </div>
+          <div class="entry-avatar-bar" id="entry-avatar-bar"></div>
+          <div class="entry-chat-panel">
+            <div class="entry-chat-head">通讯频道 <span class="live-dot">LIVE</span></div>
+            <div class="entry-chat-messages" id="entry-chat-messages"></div>
+            <div class="entry-chat-input"><input id="entry-chat-input" maxlength="120" placeholder="发送消息…" autocomplete="off" /><button id="entry-chat-emoji" class="entry-chat-tool" type="button" aria-label="发送表情"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M7.8 9.6c.5-.7 1.3-.8 1.8-.1"/><path d="M14.2 9.5h1.9"/><path d="M8.2 14.2c1 1.5 2.3 2.2 3.8 2.2s2.8-.7 3.8-2.2"/></svg></button><button id="entry-chat-plus" class="entry-chat-tool" type="button" aria-label="更多发送选项"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button><button id="entry-chat-expand" type="button">展开</button><button id="entry-chat-send" type="button">发送</button></div>
+            <input id="entry-chat-image-input" type="file" accept="image/*" hidden />
+            <div class="entry-chat-pop entry-chat-emoji-pop" id="entry-chat-emoji-pop" hidden>
+              <button type="button" data-chat-emoji="😀">😀</button><button type="button" data-chat-emoji="😉">😉</button><button type="button" data-chat-emoji="😭">😭</button><button type="button" data-chat-emoji="😡">😡</button><button type="button" data-chat-emoji="👍">👍</button><button type="button" data-chat-emoji="🎉">🎉</button><button type="button" data-chat-emoji="❤️">❤️</button><button type="button" data-chat-emoji="💔">💔</button>
+            </div>
+          </div>
+          <div class="entry-unready-row" id="entry-unready-row"></div>
+          <div class="entry-mod-actions">
+            <button class="entry-mod-btn" type="button" id="entry-kick-btn" disabled>踢出玩家</button>
+            <button class="entry-mod-btn" type="button" id="entry-mute-btn" disabled>禁言玩家</button>
+            <div class="entry-room-chip"><small>房间码</small><b id="entry-room-code">-----</b><button id="entry-copy-invite" type="button">复制邀请</button></div>
+          </div>
+          <div class="entry-mode-status" id="entry-mode-status">请选择对战模式与人数模式</div>
+          <button class="entry-start-btn" type="button" id="entry-start-btn">进入对局房间</button>
+          <div class="entry-page-body"></div>
+          <div class="entry-connect-layer" id="entry-connect-layer">
+            <aside class="entry-panel glass">
+              <div class="panel-corners"></div>
+              <button class="entry-connect-close" id="entry-connect-close" type="button" aria-label="关闭">×</button>
+              <div class="panel-kicker">CONNECTION / 建立链接</div>
+              <h2>登入休伯利安</h2>
+              <p class="panel-desc">创建房间，把房间号或邀请发给朋友。所有人将在同一张牌桌上对局。</p>
+              <button class="btn primary wide" id="create-btn">
+                <span>创建房间</span><span class="btn-glyph">＋</span>
+              </button>
+              <div class="or-divider"><span>或加入已有房间</span></div>
+              <div class="join-row">
+                <div class="input-wrap room-code-wrap">
+                  <span class="input-icon">#</span>
+                  <input id="room-input" maxlength="200" placeholder="房间码，或粘贴房主地址" autocomplete="off" spellcheck="false" />
+                </div>
+                <button class="btn ghost" id="join-btn">加入</button>
+              </div>
+              <div class="server-line">
+                <span class="dot" id="server-dot"></span>
+                <span>服务器：<b id="server-label">自动</b></span>
+                <button id="server-edit">更改</button>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </div>
+
+    <!-- ============================== 大厅 ============================== -->
+    <section id="screen-lobby" class="screen">
+      <header class="topbar lobby-topbar">
+        <div class="brand compact">
+          <span class="brand-mark brand-icon"><img src="./icon-brand.png" alt="" /></span>
+          <div class="brand-text"><strong>崩国杀</strong><small>LOBBY</small></div>
+        </div>
+        <div class="banned-roster" id="banned-roster" hidden></div>
+        <div class="room-chip" id="lobby-room-chip">
+          <small>房间码</small>
+          <b id="room-code-display">-----</b>
+          <button id="copy-invite" title="复制邀请（房间号 / 链接）">复制邀请</button>
+        </div>
+        <div class="topbar-actions">
+          <button class="screen-setting-btn lobby-chat-btn" id="lobby-chat-btn" type="button">通讯<span class="lobby-chat-badge" id="lobby-chat-badge">0</span></button>
+          <button class="screen-setting-btn" id="lobby-settings-btn" type="button">设置</button>
+          <button class="screen-mod-btn" id="lobby-kick-btn" type="button" hidden>踢出玩家</button>
+          <button class="screen-mod-btn" id="lobby-mute-btn" type="button" hidden>禁言玩家</button>
+          <button class="landing-mute app-music music-toggle" aria-pressed="true" title="开启 / 关闭背景音乐">
+            <span class="mute-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M4.5 9.2v5.6h3.6l4.4 3.6V5.6L8.1 9.2H4.5Z" />
+                <path class="mute-wave" d="M15.6 8.4c1.15 1.8 1.15 5.4 0 7.2" />
+                <path class="mute-slash" d="M4 4 20 20" />
+              </svg>
+            </span>
+            <span class="mute-label">音乐 开</span>
+          </button>
+          <button class="text-btn" id="lobby-rules">玩法</button>
+          <button class="text-btn danger" id="leave-lobby">退出</button>
+        </div>
+      </header>
+
+      <div class="select-turn-banner" id="select-turn-banner" hidden></div>
+      <main class="lobby-layout">
+        <aside class="lobby-players glass">
+          <div class="section-head">
+            <h2>出战席位</h2>
+            <span class="counter" id="lobby-count">1 / 6</span>
+          </div>
+          <div id="lobby-player-list" class="player-slots"></div>
+          <div class="lobby-controls">
+            <button class="btn small ghost" id="remove-bot"><span>－</span> 减少 AI 角色</button>
+            <button class="btn small ghost" id="add-bot"><span>＋</span> 添加 AI 角色</button>
+            <button class="btn primary wide" id="start-game">开始对局</button>
+            <p class="hint" id="lobby-hint">至少 2 人即可开始，也可以邀请朋友加入。</p>
+          </div>
+          <div class="lobby-chat">
+            <div class="section-head"><h3>通讯频道</h3><span class="live-dot">LIVE</span></div>
+            <div class="chat-messages" id="lobby-chat-messages"></div>
+            <div class="chat-input-row">
+              <input id="lobby-chat-input" maxlength="200" placeholder="发送消息…" />
+              <button id="lobby-chat-send" title="发送">↵</button>
+            </div>
+          </div>
+        </aside>
+
+        <section class="lobby-main">
+          <div class="lobby-heading">
+            <div>
+              <span class="panel-kicker">VALKYRIE ARCHIVE</span>
+              <h2>选择你的角色</h2>
+            </div>
+            <div class="char-rank-filter" id="char-rank-filter" role="group" aria-label="角色等级筛选">
+              <button type="button" class="rank-circle rank-b is-active" data-rank-filter="B" aria-pressed="true">B</button>
+              <button type="button" class="rank-circle rank-a" data-rank-filter="A" aria-pressed="false">A</button>
+              <button type="button" class="rank-circle rank-s" data-rank-filter="S" aria-pressed="false">S</button>
+            </div>
+            <p>每名角色拥有一个取自经典身份局机制的专属技能。<br />点击卡面选择，角色不可重复。</p>
+          </div>
+          <div class="character-grid" id="character-grid"></div>
+        </section>
+
+        <aside class="character-detail glass" id="character-detail">
+          <div class="detail-empty">选择一位角色<br /><small>查看她的技能档案</small></div>
+        </aside>
+      </main>
+
+      <div class="lobby-mobile-actions">
+        <button class="btn small ghost" id="mobile-add-bot" type="button">＋ AI 补位</button>
+        <button class="btn primary" id="mobile-start-game" type="button">开始对局</button>
+      </div>
+      <button id="solo-start" class="solo-start-btn" type="button" hidden>开始对局</button>
+    </section>
+
+    <!-- ============================== 牌桌 ============================== -->
+    <section id="screen-game" class="screen">
+      <header class="topbar game-topbar">
+        <div class="brand compact">
+          <span class="brand-mark brand-icon"><img src="./icon-brand.png" alt="" /></span>
+          <div class="brand-text"><strong>崩国杀</strong><small id="game-room-code">ROOM</small></div>
+        </div>
+        <div class="turn-status" id="turn-status">
+          <span class="turn-pulse"></span>
+          <div><small>当前回合</small><b id="turn-player-name">—</b></div>
+          <span class="phase-tag" id="phase-tag">准备</span>
+          <span class="round-tag" id="round-tag">第 1 轮</span>
+        </div>
+        <div class="topbar-actions">
+          <button class="screen-mod-btn" id="game-kick-btn" type="button" hidden>踢出玩家</button>
+          <button class="screen-mod-btn" id="game-mute-btn" type="button" hidden>禁言玩家</button>
+          <button class="screen-setting-btn" id="game-settings-btn" type="button">设置</button>
+          <span class="net-status" id="net-status"><i class="dot"></i><span>已连接</span></span>
+          <button class="landing-mute app-music music-toggle" aria-pressed="true" title="开启 / 关闭背景音乐">
+            <span class="mute-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M4.5 9.2v5.6h3.6l4.4 3.6V5.6L8.1 9.2H4.5Z" />
+                <path class="mute-wave" d="M15.6 8.4c1.15 1.8 1.15 5.4 0 7.2" />
+                <path class="mute-slash" d="M4 4 20 20" />
+              </svg>
+            </span>
+            <span class="mute-label">音乐 开</span>
+          </button>
+          <button class="text-btn" id="game-rules">玩法</button>
+          <button class="text-btn" id="toggle-side">战报</button>
+          <button class="text-btn danger" id="leave-game">离开</button>
+        </div>
+      </header>
+
+      <main class="game-layout">
+        <div class="board">
+          <div class="opponents-wrap">
+            <div class="opponents" id="opponents"></div>
+          </div>
+
+          <div class="board-center">
+            <div class="pile-zone">
+              <div class="pile deck-pile" id="deck-pile">
+                <span class="pile-rune">命</span>
+                <b id="deck-count">0</b>
+                <small>牌堆</small>
+              </div>
+              <div class="pile discard-pile" id="discard-pile">
+                <span class="discard-card-name" id="discard-name">—</span>
+                <small>弃牌堆</small>
+              </div>
+              <button class="auto-play-btn" id="auto-play" type="button">
+                <b>托管</b>
+                <small>自动出牌</small>
+              </button>
+              <button class="auto-play-btn prop-visibility-btn" id="prop-visible" type="button">
+                <b>道具可见</b>
+                <small>点击隐藏</small>
+              </button>
+              <span class="auto-ratio-live" id="auto-ratio-live" hidden>托管占比 0%</span>
+            </div>
+            <div class="table-core">
+              <div class="core-ring"></div>
+              <div class="core-text">
+                <small>HONKAI GUOSHA</small>
+                <b id="core-phase">等待</b>
+                <span id="core-sub">保持安静，角色正在行动</span>
+              </div>
+              <div class="table-event" id="table-event"></div>
+              <div class="table-feed" id="table-feed"></div>
+            </div>
+            <div class="table-badges">
+              <span id="badge-deck">牌堆 0</span>
+              <span id="badge-discard">弃牌 0</span>
+              <span id="badge-spectators">实时同步</span>
+            </div>
+          </div>
+
+          <div class="prompt-dock" id="prompt-dock"></div>
+
+          <div class="self-zone" id="self-zone">
+            <div class="self-panel" id="self-panel"></div>
+            <div class="self-hp-rail" id="self-hp-rail"></div>
+            <div class="hand-zone">
+              <div class="hand-role-row" id="self-role-row"></div>
+              <div class="hand-meta">
+                <span id="hand-count">手牌 0</span>
+                <span id="slash-meta"></span>
+                <span id="self-equip-summary"></span>
+              </div>
+              <div class="hand-scroll" id="hand-scroll">
+                <div class="hand" id="hand"></div>
+                <div class="hand-auto-mask" id="hand-auto-mask" hidden>
+                  <button class="cancel-auto-btn" id="cancel-auto" type="button">取消托管</button>
+                </div>
+              </div>
+              <div class="hand-actions" id="hand-actions"></div>
+            </div>
+            <div class="self-controls" id="self-controls"></div>
+          </div>
+        </div>
+
+        <aside class="side-panel glass" id="side-panel">
+          <div class="side-tabs">
+            <button class="active" data-tab="log">战报</button>
+            <button data-tab="chat">通讯</button>
+            <button class="side-close" id="side-close" title="收起">×</button>
+          </div>
+          <div class="side-content">
+            <div class="tab-panel active" id="log-panel"><div class="log-list" id="log-list"></div></div>
+            <div class="tab-panel" id="chat-panel">
+              <div class="chat-messages" id="game-chat-messages"></div>
+              <div class="chat-input-row">
+                <input id="game-chat-input" maxlength="200" placeholder="发送消息…" />
+                <span class="game-chat-emoji-wrap">
+                  <button id="game-chat-emoji" type="button" title="表情" aria-label="表情">☺</button>
+                  <div id="game-chat-emoji-pop" class="game-chat-emoji-pop"></div>
+                </span>
+                <button id="game-chat-send" title="发送">↵</button>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </main>
+
+      <div class="mobile-bar">
+        <button id="mobile-log">战报</button>
+        <button id="mobile-chat">通讯</button>
+        <button id="mobile-rules">玩法</button>
+      </div>
+
+      <div id="gameover-layer" class="gameover-layer"></div>
+    </section>
+
+    <div id="modal-root" class="modal-root"></div>
+    <div id="toast-root" class="toast-root" aria-live="polite"></div>
+  </div>
+
+  <script src="./pwa.js?v=8"></script>
+  <script src="./archive-store.js?v=20261116-10"></script>
+  <script src="./nickname-guard.js?v=5"></script>
+  <script src="./content-fallback.js?v=1"></script>
+  
+  <script
+    src="./app-20261106-58.js?v=20261120-20"
+    onerror="this.onerror=null;(function(){var s=document.createElement('script');s.src='./app.js?retry='+Date.now();document.body.appendChild(s);})()"
+  ></script>
+  <script src="./managed.js?v=9"></script>
+  <input type="file" id="avatar-file" accept="image/*" hidden />
+<div class="chat-expand-layer" id="chat-expand-layer" hidden>
+  <div class="chat-expand-panel">
+    <header class="chat-expand-head"><b>通讯频道</b><span>本房间全部消息</span><button type="button" id="chat-expand-close">关闭</button></header>
+    <div class="chat-expand-messages" id="chat-expand-messages"></div>
+    <div class="chat-expand-input"><input id="chat-expand-input" maxlength="120" placeholder="输入消息…" autocomplete="off" /><button id="chat-expand-emoji" class="entry-chat-tool" type="button" aria-label="发送表情"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M7.8 9.6c.5-.7 1.3-.8 1.8-.1"/><path d="M14.2 9.5h1.9"/><path d="M8.2 14.2c1 1.5 2.3 2.2 3.8 2.2s2.8-.7 3.8-2.2"/></svg></button><button id="chat-expand-plus" class="entry-chat-tool" type="button" aria-label="更多发送选项"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button><button type="button" id="chat-expand-send">发送</button></div>
+    <input id="chat-expand-image-input" type="file" accept="image/*" hidden />
+    <div class="entry-chat-pop chat-expand-emoji-pop" id="chat-expand-emoji-pop" hidden><button type="button" data-chat-expand-emoji="😀">😀</button><button type="button" data-chat-expand-emoji="😉">😉</button><button type="button" data-chat-expand-emoji="😭">😭</button><button type="button" data-chat-expand-emoji="😡">😡</button><button type="button" data-chat-expand-emoji="👍">👍</button><button type="button" data-chat-expand-emoji="🎉">🎉</button><button type="button" data-chat-expand-emoji="❤️">❤️</button><button type="button" data-chat-expand-emoji="💔">💔</button></div>
+  </div>
+</div>
+<style>
+.login-gate .archive-hint,
+.login-gate .login-divider,
+.login-gate .local-share,
+.login-gate .login-privacy { display:none !important; }
+.archive-info-btn {
+  align-self: flex-start;
+  margin-left: 14px;
+  min-height: 34px;
+  padding: 0 14px;
+  border: 1px solid rgba(160,190,255,.35);
+  border-radius: 5px;
+  background: rgba(30,40,70,.72);
+  color: #dfe8ff;
+  font-size: 13px;
+  cursor: pointer;
+}
+.archive-info-btn:hover { border-color: rgba(190,215,255,.7); background: rgba(45,60,100,.85); }
+</style>
+<script>
+(function(){
+  var busy=false;
+  function openHelp(ev){
+    if(ev){ ev.preventDefault(); ev.stopPropagation(); ev.stopImmediatePropagation(); }
+    if(busy||document.getElementById('modal-root').classList.contains('show')) return;
+    busy=true;
+    try{
+      var parts=[];
+      ['.login-gate .archive-hint','.login-gate .login-divider','.login-gate .local-share','.login-gate .login-privacy'].forEach(function(sel){
+        document.querySelectorAll(sel).forEach(function(el){ parts.push(el.outerHTML); });
+      });
+      var head=(typeof modalHead==='function')?modalHead('LOCAL ARCHIVE / 本地档案','档案说明'):'<div class="modal-head"><h2>档案说明</h2><button class="modal-close" data-close-modal>×</button></div>';
+      if(typeof openModal==='function') openModal(head+'<div class="archive-help-body">'+parts.join('')+'</div>','archive-help-modal');
+    }catch(e){ try{ toast('档案说明打开失败：'+e.message,'error',3000); }catch(_){} }
+    setTimeout(function(){busy=false;},300);
   }
-  out.textContent = lines.join('\n');
+  function tap(e){
+    var b=e.target&&e.target.closest?e.target.closest('#archive-help-btn'):null;
+    if(b) openHelp(e);
+  }
+  window.addEventListener('pointerdown',tap,true);
+  window.addEventListener('click',tap,true);
 })();
 </script>
+  <script>
+    (function () {
+      function paint() {
+        document.querySelectorAll('.landing-title').forEach(function (el) {
+          if (el.querySelector('.title-sha')) return;
+          var t = el.textContent || '';
+          if (t.indexOf('杀') < 0) return;
+          el.innerHTML = t.replace('杀', '<span class="title-sha">杀</span>');
+        });
+      }
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', paint); else paint();
+      setTimeout(paint, 800);
+    })();
+  </script>
+  <script src="./exit-guard.js?v=4"></script>
+  <script>
+    function fitLoginStage() {
+      if (!document.documentElement.classList.contains('native-app')) return;
+      if (!document.body.classList.contains('login-active')) return;
+      var gate = document.getElementById('login-gate');
+      if (!gate) return;
+      var s = Math.max(window.innerWidth / 1909, window.innerHeight / 1000);
+      gate.style.transform = 'translate(' + ((window.innerWidth - 1909 * s) / 2) + 'px,' + ((window.innerHeight - 1000 * s) / 2 + 14) + 'px) scale(' + s + ')';
+    }
+    setInterval(fitLoginStage, 200);
+    window.addEventListener('resize', fitLoginStage);
+    document.addEventListener('DOMContentLoaded', fitLoginStage);
+    document.addEventListener('click', function () { requestAnimationFrame(fitLoginStage); }, true);
+    try {
+      new MutationObserver(function () { requestAnimationFrame(fitLoginStage); }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+      var gateWatch = document.getElementById('login-gate');
+      if (gateWatch) new MutationObserver(function () { requestAnimationFrame(fitLoginStage); }).observe(gateWatch, { attributes: true, attributeFilter: ['class', 'style'] });
+    } catch (_) {}
+  </script>
+  <script>
+    function forceHelpFont() {
+      if (!document.documentElement.classList.contains('native-app')) return;
+      var body = document.querySelector('.archive-help-body');
+      if (!body) return;
+      body.style.setProperty('font-size', '10px', 'important');
+      body.querySelectorAll('*').forEach(function (el) {
+        el.style.setProperty('font-size', '8px', 'important');
+        el.style.setProperty('line-height', '1.65', 'important');
+      });
+    }
+    setInterval(forceHelpFont, 400);
+  </script>
+  <script>
+    function forceArchiveListText() {
+      if (!document.documentElement.classList.contains('native-app')) return;
+      var modal = document.querySelector('.archive-list-modal');
+      if (!modal) return;
+      var head = modal.querySelector('.modal-head h2');
+      if (head) head.style.setProperty('font-size', '20px', 'important');
+      modal.querySelectorAll('p, .archive-list, .archive-list *').forEach(function (el) {
+        el.style.setProperty('font-size', '11px', 'important');
+        el.style.setProperty('line-height', '1.6', 'important');
+      });
+      modal.querySelectorAll('.modal-actions .btn').forEach(function (el) {
+        el.style.setProperty('font-size', '12px', 'important');
+      });
+    }
+    setInterval(forceArchiveListText, 400);
+  </script>
+  <script>
+    function fastLoginBack() {
+      if (!document.documentElement.classList.contains('native-app')) return;
+      document.addEventListener('touchend', function (e) {
+        var btn = e.target && e.target.closest ? e.target.closest('#login-back') : null;
+        if (!btn) return;
+        e.preventDefault();
+        btn.click();
+      }, { passive: false });
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fastLoginBack);
+    else fastLoginBack();
+  </script>
+  <script>
+    function forceAnnouncementText() {
+      if (!document.documentElement.classList.contains('native-app')) return;
+      var modal = document.querySelector('.announcement-modal');
+      if (!modal) return;
+      var head = modal.querySelector('.modal-head h2');
+      if (head) head.style.setProperty('font-size', '22px', 'important');
+      var firstP = modal.querySelector('p');
+      if (firstP) {
+        firstP.style.setProperty('font-size', '14px', 'important');
+        var nameB = firstP.querySelector('b');
+        if (nameB) {
+          nameB.style.setProperty('font-size', '14px', 'important');
+          nameB.style.setProperty('color', '#f5c66b', 'important');
+        }
+      }
+      var code = modal.querySelector('#archive-delete-code-value');
+      if (code) code.style.setProperty('font-size', '20px', 'important');
+      modal.querySelectorAll('.announcement, .announcement *').forEach(function (el) {
+        el.style.setProperty('font-size', '11px', 'important');
+        el.style.setProperty('line-height', '1.7', 'important');
+      });
+    }
+    setInterval(forceAnnouncementText, 400);
+  </script>
+  <script>
+    function forceDeleteText() {
+      if (!document.documentElement.classList.contains('native-app')) return;
+      var modal = document.querySelector('.modal.confirm-danger');
+      if (!modal) return;
+      modal.querySelectorAll('p, .account-note, .confirm-code, .confirm-code *').forEach(function (el) {
+        el.style.setProperty('font-size', '11px', 'important');
+        el.style.setProperty('line-height', '1.6', 'important');
+      });
+      var head = modal.querySelector('.modal-head h2');
+      if (head) head.style.setProperty('font-size', '22px', 'important');
+      var firstP = modal.querySelector('p');
+      if (firstP) {
+        firstP.style.setProperty('font-size', '14px', 'important');
+        var nameB = firstP.querySelector('b');
+        if (nameB) {
+          nameB.style.setProperty('font-size', '14px', 'important');
+          nameB.style.setProperty('color', '#f5c66b', 'important');
+        }
+      }
+      var code = modal.querySelector('#archive-delete-code-value');
+      if (code) code.style.setProperty('font-size', '20px', 'important');
+      modal.querySelectorAll('.modal-actions .btn').forEach(function (el) {
+        el.style.setProperty('font-size', '12px', 'important');
+        el.style.setProperty('min-height', '36px', 'important');
+      });
+    }
+    setInterval(forceDeleteText, 400);
+  </script>
+  <script>
+    function fitGameStage() {
+      if (!document.documentElement.classList.contains('native-app')) return;
+      if (document.body.classList.contains('login-active') || document.body.classList.contains('landing-active')) { document.body.classList.remove('game-zoom-1'); return; }
+      document.body.classList.add('game-zoom-1');
+      var footer = document.querySelector('#screen-home .home-footer');
+      if (footer) {
+        footer.style.setProperty('display', 'flex', 'important');
+        footer.style.setProperty('position', 'absolute', 'important');
+        footer.style.setProperty('left', '85px', 'important');
+        footer.style.setProperty('top', '322px', 'important');
+        footer.style.setProperty('width', 'calc(100vw - 85px)', 'important');
+        footer.style.setProperty('font-size', '8px', 'important');
+        footer.style.setProperty('opacity', '0.9', 'important');
+        footer.style.setProperty('z-index', '9', 'important');
+      }
+      document.querySelectorAll('.screen.active').forEach(function (screen) {
+        if (!(screen.id === 'screen-home' || screen.id === 'screen-lobby' || screen.classList.contains('screen-table'))) return;
+        screen.style.width = '100vw';
+        screen.style.height = '100vh';
+        screen.style.zoom = '1';
+        screen.style.marginLeft = '0';
+        screen.style.marginTop = '0';
+      });
+    }    setInterval(fitGameStage, 300);
+    window.addEventListener('resize', fitGameStage);
+    document.addEventListener('DOMContentLoaded', fitGameStage);
+    try {
+      new MutationObserver(function () { requestAnimationFrame(fitGameStage); }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    } catch (_) {}
+
+    function forceToastSize() {
+      if (!document.documentElement.classList.contains('native-app')) return;
+      document.querySelectorAll('#toast-root .toast').forEach(function (el) {
+        el.style.setProperty('font-size', '8px', 'important');
+        el.style.setProperty('line-height', '1.55', 'important');
+        el.style.setProperty('padding', '6px 10px', 'important');
+        el.style.setProperty('max-width', '72vw', 'important');
+      });
+    }
+    function watchToasts() {
+      forceToastSize();
+      var root = document.getElementById('toast-root');
+      if (root) new MutationObserver(function () { requestAnimationFrame(forceToastSize); }).observe(root, { childList: true, subtree: true });
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', watchToasts);
+    else watchToasts();
+    setInterval(forceToastSize, 500);
+  </script>
 </body>
 </html>
