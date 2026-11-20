@@ -38,3 +38,30 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             build
+
+      - name: Boot simulator
+        run: |
+          DEVICE=$(xcrun simctl list devices available | grep -E '^\s+iPhone' | head -1 | sed -E 's/.*\(([0-9A-Fa-f-]+)\).*/\1/')
+          echo "device=$DEVICE" >> "$GITHUB_ENV"
+          xcrun simctl boot "$DEVICE" || true
+          xcrun simctl bootstatus "$DEVICE" -b
+
+      - name: Install and launch
+        run: |
+          APP="build/Build/Products/Debug-iphonesimulator/App.app"
+          ls -la "$APP"
+          xcrun simctl install "$DEVICE" "$APP"
+          xcrun simctl launch "$DEVICE" com.benguosa.game
+
+      - name: Wait and screenshot
+        run: |
+          sleep 12
+          xcrun simctl io "$DEVICE" screenshot simulator.png
+          ls -l simulator.png
+
+      - name: Upload simulator screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-simulator
+          path: ios-app/simulator.png
+          if-no-files-found: error
