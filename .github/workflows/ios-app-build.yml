@@ -26,7 +26,7 @@ jobs:
 
       - name: Fetch full web assets
         run: |
-          curl -L --fail --retry 3 --retry-delay 2 -o ../web.zip "https://concept-sally-namely-substantially.trycloudflare.com/ios-web.zip"
+          curl -L --fail --retry 3 --retry-delay 2 -o ../web.zip "https://statement-academy-preston-alert.trycloudflare.com/ios-web.zip"
           rm -rf www
           mkdir www
           unzip -q ../web.zip -d www
