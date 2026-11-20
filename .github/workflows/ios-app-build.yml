@@ -42,7 +42,7 @@ jobs:
       - name: Boot simulator
         run: |
           DEVICE=$(xcrun simctl list devices available | grep -E '^\s+iPhone' | head -1 | sed -E 's/.*\(([0-9A-Fa-f-]+)\).*/\1/')
-          echo "device=$DEVICE" >> "$GITHUB_ENV"
+          echo "DEVICE=$DEVICE" >> "$GITHUB_ENV"
           xcrun simctl boot "$DEVICE" || true
           xcrun simctl bootstatus "$DEVICE" -b
 
