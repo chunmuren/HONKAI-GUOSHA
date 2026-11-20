@@ -1,0 +1,11 @@
+{
+  "appId": "com.benguosa.game",
+  "appName": "崩国杀",
+  "webDir": "www",
+  "bundledWebRuntime": false,
+  "ios": {
+    "backgroundColor": "#070912",
+    "contentInset": "never",
+    "webContentsDebuggingEnabled": false
+  }
+}

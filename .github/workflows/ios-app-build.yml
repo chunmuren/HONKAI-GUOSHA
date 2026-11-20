@@ -1,0 +1,40 @@
+name: iOS App Build
+
+on:
+  push:
+    paths:
+      - 'ios-app/**'
+      - '.github/workflows/ios-app-build.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: ios-app
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install JS deps
+        run: npm install --no-audit --no-fund
+
+      - name: Capacitor sync
+        run: npx cap sync ios
+
+      - name: Xcode build (simulator, unsigned)
+        run: |
+          xcodebuild \
+            -project ios/App/App.xcodeproj \
+            -scheme App \
+            -sdk iphonesimulator \
+            -configuration Debug \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            build
