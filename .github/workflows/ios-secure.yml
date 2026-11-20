@@ -1,4 +1,4 @@
-name: iOS Secure Seal Verify
+﻿name: iOS Secure Seal Verify
 
 on:
   push:
@@ -12,7 +12,7 @@ on:
 
 jobs:
   verify:
-    runs-on: macos-14
+    runs-on: macos-latest
     defaults:
       run:
         working-directory: ios-native
@@ -28,3 +28,4 @@ jobs:
 
       - name: Test
         run: swift test -v
+
