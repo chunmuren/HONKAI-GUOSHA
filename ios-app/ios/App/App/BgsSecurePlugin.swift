@@ -9,7 +9,8 @@ public class BgsSecurePlugin: CAPPlugin, CAPBridgedPlugin {
     public let jsName = "BgsSecure"
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "hmacSeal", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "available", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "available", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "writeAtomic", returnType: CAPPluginReturnPromise)
     ]
 
     private let service = "com.benguosa.save.seal"
@@ -28,6 +29,28 @@ public class BgsSecurePlugin: CAPPlugin, CAPBridgedPlugin {
         let code = HMAC<SHA256>.authenticationCode(for: Data(payload.utf8), using: symmetric)
         let value = "n1:" + Data(code).base64EncodedString()
         call.resolve(["value": value])
+    }
+
+    @objc func writeAtomic(_ call: CAPPluginCall) {
+        guard let path = call.getString("path"), let text = call.getString("text") else {
+            call.reject("path/text required")
+            return
+        }
+        do {
+            let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            let target = docs.appendingPathComponent(path)
+            try FileManager.default.createDirectory(at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
+            let tmp = target.appendingPathExtension("tmp")
+            try text.write(to: tmp, atomically: false, encoding: .utf8)
+            if FileManager.default.fileExists(atPath: target.path) {
+                _ = try FileManager.default.replaceItemAt(target, withItemAt: tmp)
+            } else {
+                try FileManager.default.moveItem(at: tmp, to: target)
+            }
+            call.resolve(["ok": true])
+        } catch {
+            call.reject("atomic write failed: \(error.localizedDescription)")
+        }
     }
 
     private func keyData() -> Data? {
